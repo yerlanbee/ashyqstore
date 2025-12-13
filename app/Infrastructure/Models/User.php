@@ -2,15 +2,22 @@
 
 namespace App\Infrastructure\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domain\Auth\Dto\RegisterDto;
+use App\Domain\Shared\ValueObject\PhoneVO;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property int $id
+ * @property string $username
+ * @property string $phone
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -18,8 +25,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
-        'email',
+        'username',
+        'phone',
         'password',
     ];
 
@@ -44,5 +51,19 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public static function wherePhone(PhoneVO $phone): ?User
+    {
+        return self::query()->where('phone', $phone->value())->first();
+    }
+
+    public static function createNew(RegisterDto $dto): User
+    {
+        return self::query()->create([
+            'phone' => $dto->phone->value(),
+            'username' => $dto->username,
+            'password' => $dto->getPassword(),
+        ]);
     }
 }

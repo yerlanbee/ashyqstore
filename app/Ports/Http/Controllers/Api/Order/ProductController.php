@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Ports\Http\Controllers\Api;
+namespace App\Ports\Http\Controllers\Api\Order;
 
 use App\Infrastructure\Models\Product;
 use App\Ports\Http\Controllers\Controller;

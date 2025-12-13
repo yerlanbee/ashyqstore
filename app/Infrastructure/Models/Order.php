@@ -2,14 +2,12 @@
 
 namespace App\Infrastructure\Models;
 
+use App\Domain\Order\Dto\OrderDto;
+use App\Domain\Order\Enums\OrderStatus;
 use App\Infrastructure\Models\Contracts\OrderContract;
-use App\Infrastructure\Support\Dto\OrderDto;
-use App\Infrastructure\Support\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 
 /**

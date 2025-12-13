@@ -2,8 +2,8 @@
 
 namespace App\Infrastructure\Models;
 
+use App\Domain\Order\Dto\GuestDto;
 use App\Infrastructure\Models\Contracts\GuestContract;
-use App\Infrastructure\Support\Dto\GuestDto;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +19,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Guest extends Model implements GuestContract
 {
     protected $fillable = self::FIELDS;
+
+    protected $hidden = [
+        'created_at',
+        'updated_at',
+        'ip_address',
+    ];
 
     public static function whereUuid(string $uuid): ?self
     {

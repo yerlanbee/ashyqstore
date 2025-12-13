@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Ports\Http\Requests;
+namespace App\Ports\Http\Requests\Order;
 
+use App\Domain\Order\Dto\OrderDto;
 use App\Infrastructure\Support\Core\BaseFormRequest;
-use App\Infrastructure\Support\Dto\OrderDto;
 
 class CreateOrderRequest extends BaseFormRequest
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Infrastructure\Support\Enums;
+namespace App\Domain\Order\Enums;
 
 enum OrderStatus: int
 {

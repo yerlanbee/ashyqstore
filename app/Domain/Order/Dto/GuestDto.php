@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Infrastructure\Support\Dto;
+namespace App\Domain\Order\Dto;
 
 class GuestDto
 {

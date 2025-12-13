@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Ports\Http\Controllers\Api;
+namespace App\Ports\Http\Controllers\Api\Order;
 
-use App\Infrastructure\Models\Guest;
+use App\Domain\Order\Services\BasketAddService;
+use App\Domain\Order\Services\OrderDetailService;
 use App\Infrastructure\Models\Order;
-use App\Infrastructure\Support\Enums\OrderStatus;
 use App\Ports\Http\Controllers\Controller;
-use App\Ports\Http\Requests\CreateOrderRequest;
+use App\Ports\Http\Requests\Order\CreateOrderRequest;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,28 +18,9 @@ class OrderController extends Controller
      * @param CreateOrderRequest $request
      * @return JsonResponse
      */
-    public function basketAdd(CreateOrderRequest $request): JsonResponse
+    public function basketAdd(CreateOrderRequest $request,  BasketAddService $service): JsonResponse
     {
-        $dto = $request->toDto();
-
-        $guest = Guest::whereUuid($dto->guest->guestId);
-
-        if (! $guest) {
-            // Создаём нового гостя
-            $guest = Guest::createNew($dto->guest);
-        }
-
-        $order = Order::query()->firstOrCreate(
-            [
-                'guest_id' => $guest->id,
-                'status' => OrderStatus::DRAFT->value,
-            ],
-            [
-                'total_price' => Order::calculateTotalPrice($dto),
-            ]
-        );
-
-        $order->products()->sync($dto->items);
+        $service->handle($request->toDto());
 
         return $this->response(code: Response::HTTP_CREATED);
     }
@@ -50,23 +31,15 @@ class OrderController extends Controller
      * @param int $orderId
      * @return JsonResponse
      */
-    public function orderDetail(int $orderId): JsonResponse
+    public function orderDetail(int $orderId, OrderDetailService $service): JsonResponse
     {
         $order = Order::findById($orderId);
 
         abort_if(!$order || $order->isDeleted(), Response::HTTP_NOT_FOUND);
 
-        $order->load([
-            'guest',
-            'products' => fn ($q) => $q->select('products.id', 'products.name', 'products.price')->withPivot('quantity')
-        ]);
+        $detail = $service->handle($order);
 
-        return $this->response(data: [
-            'order' => $order->id,
-            'status' => OrderStatus::from($order->status)->toHumane(),
-            'guest' => $order->guest->uuid,
-            'products' => $order->getProducts()
-        ]);
+        return $this->response(data: $detail->toArray());
     }
 
     /**
