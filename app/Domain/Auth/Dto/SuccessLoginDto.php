@@ -2,7 +2,7 @@
 
 namespace App\Domain\Auth\Dto;
 
-class SuccessRegisteredDto
+class SuccessLoginDto
 {
     public function __construct(
         public int $userId,
