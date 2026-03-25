@@ -3,22 +3,32 @@
 namespace App\Infrastructure\Models;
 
 use App\Infrastructure\Models\Contracts\ProductContract;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+
 
 /**
+ * @property int $id
  * @property string $name
- * @property string $slug
+ * @property string $uuid
  * @property string $image
  * @property int $quantity
  * @property float $price
+ * @property int $code
  * @property bool $is_visible
  * @property int $sort
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ *
+ * @property-read Category $category
+ * @property-read Fridge $fridge
  */
 class Product extends Model implements ProductContract
 {
+
     protected $table = self::TABLE;
 
     protected $fillable = self::FIELDS;
@@ -28,9 +38,14 @@ class Product extends Model implements ProductContract
         'updated_at',
     ];
 
-    public function category(): HasOne
+    public function category(): BelongsTo
     {
-        return $this->hasOne(Category::class);
+        return $this->belongsTo(Category::class);
+    }
+
+    public function fridge(): BelongsTo
+    {
+        return $this->belongsTo(Fridge::class);
     }
 
     public function orders(): BelongsToMany

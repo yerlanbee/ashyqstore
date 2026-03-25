@@ -5,22 +5,18 @@ namespace App\Infrastructure\Models\Contracts;
 
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-interface CategoryContract extends ModelContract
+interface FridgeContract extends ModelContract
 {
     const FIELD_NAME = 'name';
     const FIELD_UUID = 'uuid';
-    const FIELD_IMAGE = 'image';
-    const FIELD_IS_VISIBLE = 'is_visible';
-    const FIELD_SORT = 'sort';
+    const FIELD_IS_VISIBLE = 'is_active';
 
-    const TABLE = 'categories';
+    const TABLE = 'fridges';
 
     const FIELDS = [
         self::FIELD_NAME,
         self::FIELD_UUID,
-        self::FIELD_IMAGE,
         self::FIELD_IS_VISIBLE,
-        self::FIELD_SORT,
     ];
 
     public function products(): HasMany;

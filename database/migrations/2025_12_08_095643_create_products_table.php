@@ -14,8 +14,10 @@ return new class extends Migration
         Schema::create('products', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('category_id')->index();
+            $table->unsignedBigInteger('fridge_id')->index();
             $table->string('name');
-            $table->string('slug');
+            $table->string('uuid');
+            $table->string('code');
             $table->integer('quantity')->default(0);
             $table->float('price')->default(0);
             $table->integer('sort')->default(0);

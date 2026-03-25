@@ -2,23 +2,23 @@
 
 namespace App\Infrastructure\Models;
 
-use App\Domain\Auth\Dto\RegisterDto;
-use App\Domain\Shared\ValueObject\PhoneVO;
+use App\Orchid\Presenters\UserPresenter;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Orchid\Access\UserAccess;
+use Orchid\Platform\Models\User as OrchidUser;
 
 /**
  * @property int $id
- * @property string $username
- * @property string $phone
+ * @property ?string $name
+ * @property string $email
  * @property string $password
  */
-class User extends Authenticatable
+class User extends OrchidUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, UserAccess;
 
     /**
      * The attributes that are mass assignable.
@@ -26,8 +26,8 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'username',
-        'phone',
+        'name',
+        'email',
         'password',
     ];
 
@@ -54,17 +54,8 @@ class User extends Authenticatable
         ];
     }
 
-    public static function wherePhone(PhoneVO $phone): ?User
+    public function presenter(): UserPresenter
     {
-        return self::query()->where('phone', $phone->value())->first();
-    }
-
-    public static function createNew(RegisterDto $dto): User
-    {
-        return self::query()->create([
-            'phone' => $dto->phone->value(),
-            'username' => $dto->username,
-            'password' => $dto->getPassword(),
-        ]);
+        return new UserPresenter($this);
     }
 }
