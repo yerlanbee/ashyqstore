@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Orchid\Screens\Category\CategoryEditScreen;
+use App\Orchid\Screens\Category\CategoryListScreen;
 use App\Orchid\Screens\Fridge\FridgeEditScreen;
 use App\Orchid\Screens\Fridge\FridgeListScreen;
 use App\Orchid\Screens\PlatformScreen;
@@ -91,3 +93,24 @@ Route::screen('products/{product}/edit', ProductEditScreen::class)
     ->breadcrumbs(fn (Trail $trail, $product) => $trail
         ->parent('platform.systems.products')
         ->push($product->id, route('platform.systems.products.edit', $product)));
+
+// Platform > System > Categories
+Route::screen('categories', CategoryListScreen::class)
+    ->name('platform.systems.categories')
+    ->breadcrumbs(fn (Trail $trail) => $trail
+        ->parent('platform.index')
+        ->push(__('Categories'), route('platform.systems.categories')));
+
+// Platform > System > Categories > Create
+Route::screen('categories/create', CategoryEditScreen::class)
+    ->name('platform.systems.categories.create')
+    ->breadcrumbs(fn (Trail $trail) => $trail
+        ->parent('platform.systems.categories')
+        ->push(__('Category-Create'), route('platform.systems.categories.create')));
+
+// Platform > System > Categories > Edit
+Route::screen('categories/{category}/edit', CategoryEditScreen::class)
+    ->name('platform.systems.categories.edit')
+    ->breadcrumbs(fn (Trail $trail, $category) => $trail
+        ->parent('platform.systems.categories')
+        ->push($category->id, route('platform.systems.categories.edit', $category)));
