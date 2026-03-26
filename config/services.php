@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'business_cloud' => [
+        'email' => env('BUSINESS_CLOUD_USER_EMAIL'),
+        'password' => env('BUSINESS_CLOUD_USER_PASS'),
+        'merchant_id' => env('BUSINESS_CLOUD_MERCHANT_ID'),
+    ]
 
 ];

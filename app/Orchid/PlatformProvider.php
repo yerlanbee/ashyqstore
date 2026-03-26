@@ -52,6 +52,11 @@ class PlatformProvider extends OrchidServiceProvider
                 ->icon('list')
                 ->route('platform.systems.categories')
                 ->permission('platform.systems.categories'),
+
+            Menu::make('Продажи')
+                ->icon('list')
+                ->route('platform.systems.transactions')
+                ->permission('platform.systems.categories'),
         ];
     }
 

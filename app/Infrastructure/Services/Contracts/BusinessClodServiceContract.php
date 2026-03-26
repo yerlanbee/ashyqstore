@@ -3,9 +3,13 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Services\Contracts;
 
+use Illuminate\Http\Client\PendingRequest;
+
 interface BusinessClodServiceContract
 {
-    public function login(): array;
+    public function newRequest(): PendingRequest;
 
-    public function getItems(): array;
+    public function getJWT(): string;
+
+    public function getTransactions(array $filters): array;
 }

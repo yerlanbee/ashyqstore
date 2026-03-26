@@ -9,6 +9,7 @@ use App\Orchid\Screens\Fridge\FridgeListScreen;
 use App\Orchid\Screens\PlatformScreen;
 use App\Orchid\Screens\Products\ProductEditScreen;
 use App\Orchid\Screens\Products\ProductListScreen;
+use App\Orchid\Screens\Transaction\TransactionListScreen;
 use App\Orchid\Screens\User\UserEditScreen;
 use App\Orchid\Screens\User\UserListScreen;
 use App\Orchid\Screens\User\UserProfileScreen;
@@ -114,3 +115,10 @@ Route::screen('categories/{category}/edit', CategoryEditScreen::class)
     ->breadcrumbs(fn (Trail $trail, $category) => $trail
         ->parent('platform.systems.categories')
         ->push($category->id, route('platform.systems.categories.edit', $category)));
+
+// Platform > System > Transactions
+Route::screen('transactions', TransactionListScreen::class)
+    ->name('platform.systems.transactions')
+    ->breadcrumbs(fn (Trail $trail) => $trail
+        ->parent('platform.index')
+        ->push(__('Transactions'), route('platform.systems.transactions')));
