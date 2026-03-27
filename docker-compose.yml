@@ -41,7 +41,7 @@ services:
         restart: always
         container_name: ashyqstore_db
         ports:
-            - '5460:5432'
+            - '5461:5432'
         environment:
             POSTGRES_DB: "${DB_DATABASE}"
             POSTGRES_USER: "${DB_USERNAME}"
