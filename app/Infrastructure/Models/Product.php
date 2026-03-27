@@ -76,4 +76,9 @@ class Product extends Model implements ProductContract
     {
         return self::query()->whereIn('id', $ids)->get($columns);
     }
+
+    public static function whereCode(string $code): ?self
+    {
+        return self::query()->where('code', $code)->first();
+    }
 }
