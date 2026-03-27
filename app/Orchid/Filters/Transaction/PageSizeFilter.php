@@ -5,6 +5,8 @@ namespace App\Orchid\Filters\Transaction;
 use Illuminate\Database\Eloquent\Builder;
 use Orchid\Filters\Filter;
 use Orchid\Screen\Fields\Select;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 
 class PageSizeFilter extends Filter
 {
@@ -23,18 +25,23 @@ class PageSizeFilter extends Filter
         return $builder;
     }
 
+    /**
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
     public function display(): iterable
     {
         return [
             Select::make('pageSize')
                 ->options([
-                    10 => '10',
-                    25 => '25',
+                    20 => '20',
                     50 => '50',
                     100 => '100',
+                    150 => '150',
+                    200 => '200',
                 ])
                 ->empty()
-                ->value($this->request->get('pageSize', 10))
+                ->value($this->request->get('pageSize', 50))
                 ->title($this->name()),
         ];
     }
