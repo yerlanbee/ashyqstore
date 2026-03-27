@@ -2,6 +2,8 @@
 
 namespace App\Orchid\Screens\Transaction;
 
+use App\Infrastructure\Models\Fridge;
+use App\Infrastructure\Models\Product;
 use App\Infrastructure\Services\BusinessCloudService;
 use App\Orchid\Layouts\Transaction\TransactionFilterLayout;
 use App\Orchid\Layouts\Transaction\TransactionListLayout;
@@ -44,14 +46,22 @@ class TransactionListScreen extends Screen
 
         $rows = $items
             ->groupBy(fn ($item) => (string) (data_get($item, 'amount') ?? 0))
-            ->map(function ($group, $amount) {
-                $first = $group->first();
+            ->map(function ($transactions, $amount) {
+                $transaction = $transactions->first();
+                $paidAt = $transaction['transactionDate'] ?
+                    Carbon::parse($transaction['transactionDate'])->addHours(5)->format('d.m.Y H:i:s')
+                    : '-';
+                $product = Product::whereCode($amount);
+                $fridge = isset($transaction['terminalName'])
+                    ? Fridge::whereCode($transaction['terminalName'])
+                    : 'Название не определено';
 
                 return [
-                    'name' => data_get($first, 'terminalName') ?? 'Без названия',
+                    'name' => $fridge->name,
                     'amount' => (float) $amount,
-                    'count' => $group->count(),
-                    'paid_at' => data_get($first, 'transactionDate') ?? '-',
+                    'product_name' => $product?->name ?? '-',
+                    'count' => $transactions->count(),
+                    'paid_at' => $paidAt,
                 ];
             })
             ->values();
@@ -121,6 +131,7 @@ class TransactionListScreen extends Screen
 
         return $carbon->format('Y-m-d\TH:i:s.v\Z');
     }
+
 
     private function buildFiltersSummary(array $filters): string
     {

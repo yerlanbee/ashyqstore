@@ -33,4 +33,9 @@ class Fridge extends Model implements FridgeContract
     {
         return self::query()->get($columns);
     }
+
+    public static function whereCode(string $code): ?self
+    {
+        return self::query()->where('code', $code)->first();
+    }
 }

@@ -17,6 +17,10 @@ class TransactionListLayout extends Table
                 ->sort()
                 ->render(fn (array $transaction) => $transaction['name'] ?? ''),
 
+            TD::make('name', 'Название товара')
+                ->sort()
+                ->render(fn (array $transaction) => $transaction['product_name'] ?? ''),
+
             TD::make('amount', 'Сумма оплаты')
                 ->render(function (array $transaction) {
                     return number_format((float) ($transaction['amount'] ?? 0), 2, '.', ' ');
