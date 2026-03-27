@@ -40,20 +40,25 @@ class TransactionListScreen extends Screen
         $service = new BusinessCloudService();
         $response = $service->getTransactions($filters);
 
-        $items = collect($response['items']);
-        $total = (int) ($response['total'] ?? data_get($response, 'meta.total', $items->count()));
+        $items = collect($response['items'] ?? []);
 
-        $rows = $items->map(function ($item) {
-            return [
-                'name' => data_get($item, 'terminalName') ?? 'Без названия',
-                'amount' => data_get($item, 'amount') ?? 0,
-                'paid_at' => data_get($item, 'transactionDate') ?? '-'
-            ];
-        });
+        $rows = $items
+            ->groupBy(fn ($item) => (string) (data_get($item, 'amount') ?? 0))
+            ->map(function ($group, $amount) {
+                $first = $group->first();
+
+                return [
+                    'name' => data_get($first, 'terminalName') ?? 'Без названия',
+                    'amount' => (float) $amount,
+                    'count' => $group->count(),
+                    'paid_at' => data_get($first, 'transactionDate') ?? '-',
+                ];
+            })
+            ->values();
 
         $transactions = new LengthAwarePaginator(
             $rows,
-            $total,
+            $rows->count(),
             $filters['pageSize'],
             $page,
             [

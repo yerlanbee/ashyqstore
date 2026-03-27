@@ -15,12 +15,16 @@ class TransactionListLayout extends Table
         return [
             TD::make('name', 'Название транзакции')
                 ->sort()
-                ->render(fn($transaction) => $transaction['name'] ?? ''),
+                ->render(fn (array $transaction) => $transaction['name'] ?? ''),
 
             TD::make('amount', 'Сумма оплаты')
                 ->render(function (array $transaction) {
                     return number_format((float) ($transaction['amount'] ?? 0), 2, '.', ' ');
                 }),
+
+            TD::make('count', 'Количество')
+                ->align(TD::ALIGN_CENTER)
+                ->render(fn (array $transaction) => $transaction['count'] ?? 0),
 
             TD::make('paid_at', 'Время')
                 ->render(function (array $transaction) {
