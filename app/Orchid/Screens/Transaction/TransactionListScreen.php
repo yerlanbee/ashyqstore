@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Orchid\Screen\Actions\ModalToggle;
 use Orchid\Screen\Fields\Input;
 use Orchid\Screen\Screen;
@@ -18,6 +19,10 @@ use Orchid\Support\Facades\Layout;
 
 class TransactionListScreen extends Screen
 {
+    private Collection $items;
+
+    private array $response;
+
     public function name(): ?string
     {
         return 'Транзакции';
@@ -25,7 +30,14 @@ class TransactionListScreen extends Screen
 
     public function description(): ?string
     {
-        return 'Список транзакций';
+        $desc = 'Список транзакций';
+
+        if ($this->response['totalAmount'] > 0 || $this->response['totalCount']) {
+            $desc = 'Общее сумма продажи: ' . $this->response['totalAmount'] . PHP_EOL;
+            $desc .= 'Количество всех продаж: ' . $this->response['totalCount'] . PHP_EOL;
+        }
+
+        return $desc;
     }
 
     /**
@@ -40,11 +52,11 @@ class TransactionListScreen extends Screen
         $filters = $this->buildFilters($request, $page);
 
         $service = new BusinessCloudService();
-        $response = $service->getTransactions($filters);
+        $this->response = $service->getTransactions($filters);
 
-        $items = collect($response['items'] ?? []);
+        $this->items = collect($this->response['items'] ?? []);
 
-        $rows = $items
+        $rows = $this->items
             ->groupBy(fn ($item) => (string) (data_get($item, 'amount') ?? 0))
             ->map(function ($transactions, $amount) {
                 $transaction = $transactions->first();
