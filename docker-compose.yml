@@ -17,23 +17,23 @@ services:
 
     #App Service
     app:
-        image: ashyqstore_image
-        build:
-            context: .
-            dockerfile: ./docker/Dockerfile
-        container_name: ashyqstore_app
-        restart: unless-stopped
-        environment:
-            CONTAINER_ROLE: app
-            PHP_OPCACHE_VALIDATE_TIMESTAMPS: 1
-            APP_ENV: production
-        volumes:
-            - ./:/var/www
-            - ./docker/php/local.ini:/usr/local/etc/php/php.ini
-            - ./docker/php/www.conf:/usr/local/etc/php-fpm.d/www.conf:cached
-            - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini
-        depends_on:
-            - db
+      image: ashyqstore_image
+      build:
+        context: .
+        dockerfile: ./docker/Dockerfile
+      container_name: ashyqstore_app
+      restart: unless-stopped
+      environment:
+        CONTAINER_ROLE: app
+        PHP_OPCACHE_VALIDATE_TIMESTAMPS: 1
+        APP_ENV: production
+      volumes:
+        - ./:/var/www
+        - ./docker/php/local.ini:/usr/local/etc/php/php.ini
+        - ./docker/php/www.conf:/usr/local/etc/php-fpm.d/www.conf
+        - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini
+      depends_on:
+        - db
 
     # PgSQL
     db:
