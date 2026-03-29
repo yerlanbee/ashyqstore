@@ -44,17 +44,17 @@ class PlatformProvider extends OrchidServiceProvider
                 ->permission('platform.systems.fridges'),
 
             Menu::make('Товары')
-                ->icon('list')
+                ->icon('bs.box-seam')
                 ->route('platform.systems.products')
                 ->permission('platform.systems.products'),
 
             Menu::make('Категорий')
-                ->icon('list')
+                ->icon('bs.collection')
                 ->route('platform.systems.categories')
                 ->permission('platform.systems.categories'),
 
             Menu::make('Продажи')
-                ->icon('list')
+                ->icon('bs.cash-stack')
                 ->route('platform.systems.transactions')
                 ->permission('platform.systems.categories'),
         ];
