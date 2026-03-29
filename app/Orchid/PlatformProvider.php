@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Orchid;
 
+use App\Infrastructure\Models\Fridge;
 use Orchid\Platform\Dashboard;
 use Orchid\Platform\ItemPermission;
 use Orchid\Platform\OrchidServiceProvider;
@@ -32,6 +33,11 @@ class PlatformProvider extends OrchidServiceProvider
      */
     public function menu(): array
     {
+        /**
+         * @var Fridge $fridge
+         */
+        $fridge = Fridge::query()->first();
+
         return [
             Menu::make('Пользователи')
                 ->icon('bs.people')
@@ -55,7 +61,10 @@ class PlatformProvider extends OrchidServiceProvider
 
             Menu::make('Продажи')
                 ->icon('bs.cash-stack')
-                ->route('platform.systems.transactions')
+                ->route('platform.systems.transactions', [
+                    'terminalId' => $fridge?->uuid,
+                    'pageSize' => 100
+                ])
                 ->permission('platform.systems.categories'),
         ];
     }
