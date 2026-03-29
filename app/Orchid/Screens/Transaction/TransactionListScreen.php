@@ -8,6 +8,7 @@ use App\Infrastructure\Services\BusinessCloudService;
 use App\Infrastructure\Services\Contracts\BusinessClodServiceContract;
 use App\Orchid\Layouts\Transaction\TransactionFilterLayout;
 use App\Orchid\Layouts\Transaction\TransactionListLayout;
+use App\Orchid\Layouts\Transaction\TransactionSummaryLayout;
 use Carbon\Carbon;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
@@ -35,14 +36,7 @@ class TransactionListScreen extends Screen
 
     public function description(): ?string
     {
-        $desc = 'Список транзакций';
-
-        if ($this->response['totalAmount'] > 0 || $this->response['totalCount']) {
-            $desc = 'Общее сумма продажи: ' . $this->response['totalAmount'] . PHP_EOL;
-            $desc .= 'Количество всех продаж: ' . $this->response['totalCount'] . PHP_EOL;
-        }
-
-        return $desc;
+        return 'Список транзакций';
     }
 
     /**
@@ -113,12 +107,17 @@ class TransactionListScreen extends Screen
             ],
             'filtersSummary' => $this->buildFiltersSummary($filters),
             'transactions' => $transactions,
+            'summary' => [
+                'totalAmount' => $this->response['totalAmount'] ?? 0,
+                'totalCount' => $this->response['totalCount'] ?? 0,
+            ],
         ];
     }
 
     public function layout(): iterable
     {
         return [
+            TransactionSummaryLayout::class,
             TransactionFilterLayout::class,
             TransactionListLayout::class,
         ];
