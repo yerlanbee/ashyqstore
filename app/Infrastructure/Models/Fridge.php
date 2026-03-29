@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Models;
 
 use App\Infrastructure\Models\Contracts\FridgeContract;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -34,8 +35,8 @@ class Fridge extends Model implements FridgeContract
         return self::query()->get($columns);
     }
 
-    public static function whereCode(string $code): ?self
+    public static function whereCode(string $code): Builder
     {
-        return self::query()->where('code', $code)->first();
+        return self::query()->where('code', $code);
     }
 }

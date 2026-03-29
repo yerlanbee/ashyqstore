@@ -4,6 +4,7 @@ namespace App\Infrastructure\Models;
 
 use App\Infrastructure\Models\Contracts\ProductContract;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -77,8 +78,8 @@ class Product extends Model implements ProductContract
         return self::query()->whereIn('id', $ids)->get($columns);
     }
 
-    public static function whereCode(string $code): ?self
+    public static function whereCode(string $code): ?Builder
     {
-        return self::query()->where('code', $code)->first();
+        return self::query()->where('code', $code);
     }
 }

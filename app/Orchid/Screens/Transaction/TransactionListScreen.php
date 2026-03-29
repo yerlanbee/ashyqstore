@@ -5,6 +5,7 @@ namespace App\Orchid\Screens\Transaction;
 use App\Infrastructure\Models\Fridge;
 use App\Infrastructure\Models\Product;
 use App\Infrastructure\Services\BusinessCloudService;
+use App\Infrastructure\Services\Contracts\BusinessClodServiceContract;
 use App\Orchid\Layouts\Transaction\TransactionFilterLayout;
 use App\Orchid\Layouts\Transaction\TransactionListLayout;
 use Carbon\Carbon;
@@ -12,13 +13,17 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Orchid\Screen\Actions\ModalToggle;
-use Orchid\Screen\Fields\Input;
 use Orchid\Screen\Screen;
-use Orchid\Support\Facades\Layout;
 
 class TransactionListScreen extends Screen
 {
+    public BusinessClodServiceContract $service;
+
+    public function __construct()
+    {
+        $this->service = new BusinessCloudService();
+    }
+
     private Collection $items;
 
     private array $response;
@@ -48,11 +53,12 @@ class TransactionListScreen extends Screen
      */
     public function query(Request $request): iterable
     {
-        $page = max(1, (int) $request->get('page', 1));
+        $this->validateRequest($request);
+
+        $page = $request->input('page', 1);
         $filters = $this->buildFilters($request, $page);
 
-        $service = new BusinessCloudService();
-        $this->response = $service->getTransactions($filters);
+        $this->response = $this->service->getTransactions($filters);
 
         $this->items = collect($this->response['items'] ?? []);
 
@@ -63,9 +69,17 @@ class TransactionListScreen extends Screen
                 $paidAt = $transaction['transactionDate'] ?
                     Carbon::parse($transaction['transactionDate'])->addHours(5)->format('d.m.Y H:i:s')
                     : '-';
-                $product = Product::whereCode($amount);
+
+                /**
+                 * @var Product $product
+                 */
+                $product = Product::whereCode($amount)->first();
+
+                /**
+                 * @var Fridge $fridge
+                 */
                 $fridge = isset($transaction['terminalName'])
-                    ? Fridge::whereCode($transaction['terminalName'])
+                    ? Fridge::whereCode($transaction['terminalName'])->first()
                     : 'Название не определено';
 
                 return [
@@ -163,5 +177,21 @@ class TransactionListScreen extends Screen
         $parts[] = 'До: ' . Carbon::parse($filters['dateTimeTo'])->format('d.m.Y H:i');
 
         return implode(' | ', $parts);
+    }
+
+    private function validateRequest(Request $request): void
+    {
+        $request->validate([
+            'dateTimeFrom' => ['nullable', 'date', 'before_or_equal:dateTimeTo'],
+            'dateTimeTo' => ['nullable', 'date', 'after_or_equal:dateTimeFrom'],
+
+            'terminalId' => ['nullable', 'uuid', 'exists:fridges,uuid'],
+        ], [
+            'dateTimeFrom.before_or_equal' => 'Дата начала должна быть меньше или равна дате окончания',
+            'dateTimeTo.after_or_equal' => 'Дата окончания должна быть больше или равна дате начала',
+
+            'terminalId.uuid' => 'Неверный формат терминала',
+            'terminalId.exists' => 'Холодильник не найден',
+        ]);
     }
 }
