@@ -1,6 +1,7 @@
 <?php
 
 use App\Ports\Http\Controllers\Api\Auth\AuthController;
+use App\Ports\Http\Controllers\Api\FormController;
 use App\Ports\Http\Controllers\Api\Order\CategoryController;
 use App\Ports\Http\Controllers\Api\Order\OrderController;
 use App\Ports\Http\Controllers\Api\Order\ProductController;
@@ -33,4 +34,6 @@ Route::group([
 
         Route::get(  '/{orderId}/detail', [OrderController::class, 'orderDetail']);
     });
+
+    Route::post('submit/form', [FormController::class, 'submitForm'])->name('submit.form');
 });
