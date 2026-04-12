@@ -15,11 +15,15 @@ class TransactionListLayout extends Table
         return [
             TD::make('name', 'Название транзакции')
                 ->sort()
-                ->render(fn (array $transaction) => $transaction['name'] ?? ''),
+                ->render(fn (array $transaction) => $transaction['name'] ?? 'Не известно'),
 
             TD::make('name', 'Название товара')
                 ->sort()
-                ->render(fn (array $transaction) => $transaction['product_name'] ?? ''),
+                ->render(fn (array $transaction) => $transaction['product_name'] ?? 'Не известно'),
+
+            TD::make('category', 'Категория')
+                ->sort()
+                ->render(fn (array $transaction) => $transaction['category'] ?? 'Не известно'),
 
             TD::make('amount', 'Сумма оплаты')
                 ->render(function (array $transaction) {

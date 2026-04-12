@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Orchid\Filters\Filterable;
+use Orchid\Filters\Types\Like;
+use Orchid\Filters\Types\Where;
+use Orchid\Screen\AsSource;
 
 
 /**
@@ -29,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Product extends Model implements ProductContract
 {
+    use Filterable;
 
     protected $table = self::TABLE;
 
@@ -37,6 +42,17 @@ class Product extends Model implements ProductContract
     protected $hidden = [
         'created_at',
         'updated_at',
+    ];
+
+    protected $allowedFilters = [
+        'name' => Like::class,
+        'code' => Where::class,
+    ];
+
+    protected $allowedSorts = [
+        'name',
+        'code',
+        'created_at',
     ];
 
     public function category(): BelongsTo
@@ -81,5 +97,16 @@ class Product extends Model implements ProductContract
     public static function whereCode(string $code): ?Builder
     {
         return self::query()->where('code', $code);
+    }
+
+    public function scopeFilter(Builder $query, array $filters): Builder
+    {
+        return $query
+            ->when($filters['name'] ?? null, function ($q, $value) {
+                $q->where('name', 'LIKE', "%{$value}%");
+            })
+            ->when($filters['code'] ?? null, function ($q, $value) {
+                $q->where('code', 'LIKE', "%{$value}%");
+            });
     }
 }

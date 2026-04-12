@@ -37,6 +37,8 @@ class ProductListLayout extends Table
                 ->render(fn (Product $product) => $product->fridge?->name ?? '—'),
 
             TD::make('code', 'Код')
+                ->sort()
+                ->filter(Input::make())
                 ->render(fn (Product $product) => $product->code ?? '—'),
 
             TD::make('quantity', 'Количество')

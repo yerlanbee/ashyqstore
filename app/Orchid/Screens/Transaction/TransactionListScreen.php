@@ -1,33 +1,25 @@
 <?php
-
 namespace App\Orchid\Screens\Transaction;
 
-use App\Infrastructure\Models\Fridge;
-use App\Infrastructure\Models\Product;
-use App\Infrastructure\Services\BusinessCloudService;
-use App\Infrastructure\Services\Contracts\BusinessClodServiceContract;
+use App\Infrastructure\Repositories\Contracts\TransactionRepositoryInterface;
 use App\Orchid\Layouts\Transaction\TransactionFilterLayout;
 use App\Orchid\Layouts\Transaction\TransactionListLayout;
 use App\Orchid\Layouts\Transaction\TransactionSummaryLayout;
 use Carbon\Carbon;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Orchid\Screen\Screen;
 
 class TransactionListScreen extends Screen
 {
-    public BusinessClodServiceContract $service;
-
-    public function __construct()
-    {
-        $this->service = new BusinessCloudService();
-    }
-
-    private Collection $items;
-
-    private array $response;
+    /**
+     * @param TransactionRepositoryInterface $repository
+     */
+    public function __construct(
+        protected TransactionRepositoryInterface $repository
+    ) {}
 
     public function name(): ?string
     {
@@ -36,80 +28,44 @@ class TransactionListScreen extends Screen
 
     public function description(): ?string
     {
-        return 'Список транзакций';
+        return 'Список транзакций из внешнего сервиса';
     }
 
     /**
      * @param Request $request
      * @return iterable
-     * @throws ConnectionException
-     * @throws \Illuminate\Http\Client\RequestException
      */
     public function query(Request $request): iterable
     {
         $this->validateRequest($request);
 
-        $page = $request->input('page', 1);
-        $filters = $this->buildFilters($request, $page);
+        $page = (int) $request->input('page', 1);
+        $perPage = (int) $request->input('pageSize', 10);
 
-        $this->response = $this->service->getTransactions($filters);
+        $filters = $this->prepareApiFilters($request, $page);
+        $rows = $this->repository->getEnrichedTransactions($filters);
 
-        $this->items = collect($this->response['items'] ?? []);
-
-        $rows = $this->items
-            ->groupBy(fn ($item) => (string) (data_get($item, 'amount') ?? 0))
-            ->map(function ($transactions, $amount) {
-                $transaction = $transactions->first();
-                $paidAt = $transaction['transactionDate'] ?
-                    Carbon::parse($transaction['transactionDate'])->addHours(5)->format('d.m.Y H:i:s')
-                    : '-';
-
-                /**
-                 * @var Product $product
-                 */
-                $product = Product::whereCode($amount)->first();
-
-                /**
-                 * @var Fridge $fridge
-                 */
-                $fridge = isset($transaction['terminalName'])
-                    ? Fridge::whereCode($transaction['terminalName'])->first()
-                    : 'Название не определено';
-
-                return [
-                    'name' => $fridge->name,
-                    'amount' => (float) $amount,
-                    'product_name' => $product?->name ?? '-',
-                    'count' => $transactions->count(),
-                    'paid_at' => $paidAt,
-                ];
-            })
-            ->values();
-
-        $transactions = new LengthAwarePaginator(
-            $rows,
-            $rows->count(),
-            $filters['pageSize'],
-            $page,
-            [
-                'path' => $request->url(),
-                'query' => $request->query(),
-            ]
-        );
+        $rows = $this->applyFilters($rows, $request);
 
         return [
-            'filters' => [
-                'pageSize' => $filters['pageSize'],
-                'dateTimeFrom' => $filters['dateTimeFrom'],
-                'dateTimeTo' => $filters['dateTimeTo'],
-                'terminalId' => $filters['terminalIds'][0] ?? null,
+            'transactions'   => new LengthAwarePaginator(
+                $rows->forPage($page, $perPage),
+                $rows->count(),
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            ),
+            'filters'        => [
+                'pageSize'       => $perPage,
+                'dateTimeFrom'   => $filters['dateTimeFrom'],
+                'dateTimeTo'     => $filters['dateTimeTo'],
+                'terminalId'     => $request->input('terminalId'),
                 'paymentMethods' => $filters['paymentMethods'] ?? [],
             ],
-            'filtersSummary' => $this->buildFiltersSummary($filters),
-            'transactions' => $transactions,
-            'summary' => [
-                'totalAmount' => $this->response['totalAmount'] ?? 0,
-                'totalCount' => $this->response['totalCount'] ?? 0,
+            'filtersSummary' => $this->formatFiltersSummary($filters, $request->input('search')),
+            'summary'        => [
+                'totalAmount' => $rows->sum(fn($r) => $r['amount'] * $r['count']),
+                'totalCount'  => $rows->sum('count'),
             ],
         ];
     }
@@ -123,74 +79,86 @@ class TransactionListScreen extends Screen
         ];
     }
 
-    private function buildFilters(Request $request, int $page): array
+    /**
+     * Применить поиск по коллекции и сортировка
+     */
+    private function applyFilters(Collection $rows, Request $request): Collection
     {
-        $pageSize = max(1, (int) $request->input('pageSize', 10));
-        $terminalId = $request->input('terminalId');
+        // Поиск
+        if ($search = $request->input('search')) {
+            $search = Str::lower($search);
+            $rows = $rows->filter(fn($item) =>
+                Str::contains(Str::lower($item['product_name']), $search) ||
+                Str::contains(Str::lower((string)$item['product_code']), $search)
+            );
+        }
 
-        $paymentMethods = array_values(array_filter(
-            array_map('intval', (array) $request->input('paymentMethods', []))
-        ));
+        // Сортировка
+        $sort = $request->input('sort', '-paid_at');
+        $desc = str_starts_with($sort, '-');
+        $column = ltrim($sort, '-');
 
+        return $desc
+            ? $rows->sortByDesc($column, SORT_NATURAL | SORT_FLAG_CASE)
+            : $rows->sortBy($column, SORT_NATURAL | SORT_FLAG_CASE);
+    }
+
+    /**
+     * Формирование фильтров для API репозитория
+     */
+    private function prepareApiFilters(Request $request, int $page): array
+    {
         return [
-            'pageSize' => $pageSize,
-            'dateTimeFrom' => $this->toIsoUtc($request->input('dateTimeFrom')),
-            'dateTimeTo' => $this->toIsoUtc($request->input('dateTimeTo'), true),
-            'terminalIds' => $terminalId ? [$terminalId] : [],
-            'page' => $page,
-            'paymentMethods' => $paymentMethods ?: null,
+            'pageSize'       => (int) $request->input('pageSize', 10),
+            'dateTimeFrom'   => $this->formatToIso($request->input('dateTimeFrom')),
+            'dateTimeTo'     => $this->formatToIso($request->input('dateTimeTo'), true),
+            'terminalIds'    => $request->filled('terminalId') ? [$request->input('terminalId')] : [],
+            'page'           => $page,
+            'paymentMethods' => array_filter(array_map('intval', (array) $request->input('paymentMethods', []))) ?: null,
         ];
     }
 
-    private function toIsoUtc(mixed $date, bool $end = false): string
+    /**
+     * @param string|null $date
+     * @param bool $isEnd
+     * @return string
+     */
+    private function formatToIso(?string $date, bool $isEnd = false): string
     {
-        $carbon = $date
-            ? Carbon::parse($date)
-            : now();
-
-        $carbon = $carbon->utc();
-
-        $carbon = $end
-            ? $carbon->endOfDay()
-            : $carbon->startOfDay();
-
-        return $carbon->format('Y-m-d\TH:i:s.v\Z');
+        $dt = $date ? Carbon::parse($date) : now();
+        $dt = $dt->utc();
+        return ($isEnd ? $dt->endOfDay() : $dt->startOfDay())->format('Y-m-d\TH:i:s.v\Z');
     }
 
-
-    private function buildFiltersSummary(array $filters): string
+    /**
+     * @param array $filters
+     * @param string|null $search
+     * @return string
+     */
+    private function formatFiltersSummary(array $filters, ?string $search): string
     {
-        $parts = [];
+        $parts = [
+            "Размер: {$filters['pageSize']}",
+            "От: " . Carbon::parse($filters['dateTimeFrom'])->format('d.m.Y'),
+            "До: " . Carbon::parse($filters['dateTimeTo'])->format('d.m.Y'),
+        ];
 
-        $parts[] = 'Размер: ' . $filters['pageSize'];
-
-        if (!empty($filters['terminalIds'][0])) {
-            $parts[] = 'Холодильник: ' . $filters['terminalIds'][0];
-        }
-
-        if (!empty($filters['paymentMethods'])) {
-            $parts[] = 'Оплата: ' . implode(', ', $filters['paymentMethods']);
-        }
-
-        $parts[] = 'От: ' . Carbon::parse($filters['dateTimeFrom'])->format('d.m.Y H:i');
-        $parts[] = 'До: ' . Carbon::parse($filters['dateTimeTo'])->format('d.m.Y H:i');
+        if ($search) $parts[] = "Поиск: $search";
+        if (!empty($filters['terminalIds'])) $parts[] = "Терминал: {$filters['terminalIds'][0]}";
 
         return implode(' | ', $parts);
     }
 
+    /**
+     * @param Request $request
+     * @return void
+     */
     private function validateRequest(Request $request): void
     {
         $request->validate([
-            'dateTimeFrom' => ['nullable', 'date', 'before_or_equal:dateTimeTo'],
-            'dateTimeTo' => ['nullable', 'date', 'after_or_equal:dateTimeFrom'],
-
-            'terminalId' => ['nullable', 'uuid', 'exists:fridges,uuid'],
-        ], [
-            'dateTimeFrom.before_or_equal' => 'Дата начала должна быть меньше или равна дате окончания',
-            'dateTimeTo.after_or_equal' => 'Дата окончания должна быть больше или равна дате начала',
-
-            'terminalId.uuid' => 'Неверный формат терминала',
-            'terminalId.exists' => 'Холодильник не найден',
+            'dateTimeFrom' => 'nullable|date|before_or_equal:dateTimeTo',
+            'dateTimeTo'   => 'nullable|date|after_or_equal:dateTimeFrom',
+            'terminalId'   => 'nullable|uuid|exists:fridges,uuid',
         ]);
     }
 }

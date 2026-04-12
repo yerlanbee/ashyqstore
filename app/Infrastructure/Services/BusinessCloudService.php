@@ -38,6 +38,7 @@ class BusinessCloudService implements BusinessClodServiceContract
      */
     public function getTransactions(array $filters): array
     {
+//        dd($filters);
         $http = $this->newRequest()->post('api/transactions', $filters);
 
         $http->throw();

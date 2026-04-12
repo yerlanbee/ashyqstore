@@ -4,17 +4,23 @@ namespace App\Orchid\Screens\Products;
 
 use App\Infrastructure\Models\Product;
 use App\Orchid\Layouts\Product\ProductListLayout;
-use Illuminate\Http\Request;
 use Orchid\Screen\Actions\Link;
+use Orchid\Screen\Fields\Input;
+use Orchid\Screen\Fields\Group;
+use Orchid\Support\Facades\Layout;
 use Orchid\Screen\Screen;
-use Orchid\Support\Facades\Toast;
 
 class ProductListScreen extends Screen
 {
     public function query(): iterable
     {
+        $products = Product::with(['category', 'fridge'])
+            ->filters()
+            ->orderByDesc('id')
+            ->paginate();
+
         return [
-            'products' => Product::with(['category', 'fridge'])->paginate(),
+            'products' => $products,
         ];
     }
 
@@ -37,19 +43,5 @@ class ProductListScreen extends Screen
         return [
             ProductListLayout::class,
         ];
-    }
-
-    public function saveFridge(Request $request, Product $fridge): void
-    {
-        $fridge->fill($request->input('product'))->save();
-
-        Toast::info('Изменения сохранены');
-    }
-
-    public function remove(Request $request): void
-    {
-        Product::findOrFail($request->get('id'))->delete();
-
-        Toast::info(__('Успешно удалили'));
     }
 }
