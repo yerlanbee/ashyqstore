@@ -35,6 +35,7 @@ return [
         ],
     ],
     'business_cloud' => [
+        'url' => env('BUSINESS_CLOUD_URL'),
         'email' => env('BUSINESS_CLOUD_USER_EMAIL'),
         'password' => env('BUSINESS_CLOUD_USER_PASS'),
         'merchant_id' => env('BUSINESS_CLOUD_MERCHANT_ID'),

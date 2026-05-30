@@ -1,80 +1,117 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Infrastructure\Services;
 
 use App\Infrastructure\Services\Contracts\BusinessClodServiceContract;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class BusinessCloudService implements BusinessClodServiceContract
 {
-    const TIMEOUT = 120;
+    private const TIMEOUT = 120;
 
-    private string $email;
+    private const TOKEN_TTL = 3600;
 
-    private string $password;
+    private const CACHE_KEY = 'business_cloud:jwt';
 
-    private string $merchantId;
+    private readonly string $email;
 
-    private string $baseUrl;
+    private readonly string $password;
 
-    private string $cacheKey = 'business_cloud_cache';
+    private readonly string $merchantId;
+
+    private readonly string $baseUrl;
 
     public function __construct()
     {
-        $this->baseUrl = env('BUSINESS_CLOUD_URL');
-        $this->email = config('services.business_cloud.email');
-        $this->password = config('services.business_cloud.password');
-        $this->merchantId = config('services.business_cloud.merchant_id');
+        $this->baseUrl = (string) config('services.business_cloud.url');
+        $this->email = (string) config('services.business_cloud.email');
+        $this->password = (string) config('services.business_cloud.password');
+        $this->merchantId = (string) config('services.business_cloud.merchant_id');
     }
 
     /**
-     * @param array $filters
-     * @return array
      * @throws ConnectionException
-     * @throws \Illuminate\Http\Client\RequestException
+     * @throws RequestException
      */
     public function getTransactions(array $filters): array
     {
-//        dd($filters);
-        $http = $this->newRequest()->post('api/transactions', $filters);
+        $response = $this->send(fn (PendingRequest $http) => $http->post('api/transactions', $filters));
 
-        $http->throw();
-
-        return $http->json();
+        return $response->json() ?? [];
     }
 
     /**
      * @throws ConnectionException
+     * @throws RequestException
      */
     public function getJWT(): string
     {
-        $http = Http::baseUrl($this->baseUrl)->post('api/auth/login', [
-            'userName' => $this->email,
-            'password' => $this->password
-        ]);
+        $cached = Cache::get(self::CACHE_KEY);
 
-        if (! $http->successful())
-        {
-            throw new ConnectionException('Can not connect to business cloud');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
         }
 
-        return Cache::remember($this->cacheKey, 3600, function () use ($http) {
-            return $http->json()['access_token'];
-        });
+        $response = Http::timeout(self::TIMEOUT)
+            ->acceptJson()
+            ->baseUrl($this->baseUrl)
+            ->post('api/auth/login', [
+                'userName' => $this->email,
+                'password' => $this->password,
+            ]);
+
+        $response->throw();
+
+        $token = (string) ($response->json('access_token') ?? '');
+
+        if ($token === '') {
+            throw new ConnectionException('Business Cloud login returned empty token');
+        }
+
+        Cache::put(self::CACHE_KEY, $token, self::TOKEN_TTL);
+
+        return $token;
     }
 
     /**
      * @throws ConnectionException
+     * @throws RequestException
      */
     public function newRequest(): PendingRequest
     {
         return Http::timeout(self::TIMEOUT)
+            ->withToken($this->getJWT())
             ->withHeaders([
-                'Authorization' => 'Bearer '.$this->getJWT(),
                 'X-Merchant-Id' => $this->merchantId,
-            ])->acceptJson()->baseUrl($this->baseUrl);
+            ])
+            ->acceptJson()
+            ->baseUrl($this->baseUrl);
+    }
+
+    /**
+     * Выполнить запрос с одним повтором при истечении токена (401).
+     *
+     * @throws ConnectionException
+     * @throws RequestException
+     */
+    private function send(callable $callback): Response
+    {
+        $response = $callback($this->newRequest());
+
+        if ($response->status() === 401) {
+            Cache::forget(self::CACHE_KEY);
+            $response = $callback($this->newRequest());
+        }
+
+        $response->throw();
+
+        return $response;
     }
 }

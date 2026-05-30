@@ -9,10 +9,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Orchid\Filters\Filterable;
-use Orchid\Filters\Types\Like;
-use Orchid\Filters\Types\Where;
-use Orchid\Screen\AsSource;
 
 
 /**
@@ -33,8 +29,6 @@ use Orchid\Screen\AsSource;
  */
 class Product extends Model implements ProductContract
 {
-    use Filterable;
-
     protected $table = self::TABLE;
 
     protected $fillable = self::FIELDS;
@@ -42,17 +36,6 @@ class Product extends Model implements ProductContract
     protected $hidden = [
         'created_at',
         'updated_at',
-    ];
-
-    protected $allowedFilters = [
-        'name' => Like::class,
-        'code' => Where::class,
-    ];
-
-    protected $allowedSorts = [
-        'name',
-        'code',
-        'created_at',
     ];
 
     public function category(): BelongsTo
