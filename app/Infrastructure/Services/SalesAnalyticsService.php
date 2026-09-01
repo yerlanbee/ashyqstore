@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Services;
 
+use App\Infrastructure\Models\Fridge;
 use App\Infrastructure\Repositories\Contracts\TransactionRepositoryInterface;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -102,15 +103,25 @@ class SalesAnalyticsService
             });
     }
 
-    /** @return Collection<int, array> */
+    /**
+     * Строка топа — товар внутри микромаркета, как в таблице транзакций.
+     *
+     * Микромаркеты не смешиваем: одна цена в разных холодильниках может
+     * принадлежать разным товарам (589 — и Gorilla, и Kinder), а каталог
+     * у каждого свой.
+     *
+     * @return Collection<int, array>
+     */
     private function top(Collection $sales, int $limit): Collection
     {
+        $fridges = Fridge::query()->pluck('name', 'uuid');
+
         return $sales
             ->groupBy(fn (array $t) => implode('|', [
                 $t['terminalId'] ?? '',
                 number_format((float) ($t['amount'] ?? 0), 2, '.', ''),
             ]))
-            ->map(function (Collection $group) {
+            ->map(function (Collection $group) use ($fridges) {
                 $first = $group->first();
 
                 return $this->products->resolve(
@@ -118,21 +129,13 @@ class SalesAnalyticsService
                     (float) ($first['amount'] ?? 0),
                     $first['description'] ?? null,
                 ) + [
+                    'fridge' => $fridges->get($first['terminalId'] ?? null)
+                        ?? $first['terminalName']
+                        ?? 'Не определено',
                     'units' => $group->count(),
                     'revenue' => (float) $group->sum('amount'),
                 ];
             })
-            // Цену сводим только внутри холодильника: в разных холодильниках
-            // она совпадает у разных товаров (589 — и Gorilla, и Kinder).
-            // Один товар из нескольких холодильников складываем по названию.
-            ->groupBy('name')
-            ->map(fn (Collection $rows) => [
-                'name' => $rows->first()['name'],
-                'category' => $rows->first()['category'],
-                'shelf' => $rows->pluck('shelf')->filter()->first(),
-                'units' => $rows->sum('units'),
-                'revenue' => (float) $rows->sum('revenue'),
-            ])
             ->sortByDesc('units')
             ->take($limit)
             ->values();

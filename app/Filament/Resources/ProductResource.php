@@ -84,8 +84,8 @@ class ProductResource extends Resource
                                     ->prefixIcon('heroicon-o-building-storefront'),
 
                                 Forms\Components\TextInput::make('code')
-                                    ->label('Полка')
-                                    ->placeholder('Номер полки в холодильнике')
+                                    ->label('Код товара')
+                                    ->placeholder('Код товара')
                                     ->maxLength(255)
                                     ->prefixIcon('heroicon-o-hashtag')
                                     ->columnSpan(2),
@@ -210,7 +210,7 @@ class ProductResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Полка')
+                    ->label('Код товара')
                     ->searchable()
                     ->sortable()
                     ->placeholder('—')

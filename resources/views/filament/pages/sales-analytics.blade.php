@@ -133,6 +133,7 @@
                     <tr class="border-b border-gray-200 dark:border-white/10">
                         <th class="px-6 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500">#</th>
                         <th class="px-6 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500">Товар</th>
+                        <th class="px-6 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500">Микромаркет</th>
                         <th class="px-6 py-3 text-start text-xs font-semibold uppercase tracking-wider text-gray-500">Категория</th>
                         <th class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">Продано</th>
                         <th class="px-6 py-3 text-end text-xs font-semibold uppercase tracking-wider text-gray-500">Выручка</th>
@@ -148,6 +149,9 @@
                                 @if ($item['shelf'])
                                     <div class="text-xs font-normal text-gray-500">Полка {{ $item['shelf'] }}</div>
                                 @endif
+                            </td>
+                            <td class="whitespace-nowrap px-6 py-3 text-gray-500 dark:text-gray-400">
+                                {{ $item['fridge'] }}
                             </td>
                             <td class="px-6 py-3">
                                 <span class="fi-badge inline-flex items-center rounded-md bg-info-50 px-2 py-1 text-xs font-medium text-info-700 ring-1 ring-inset ring-info-600/20 dark:bg-info-500/10 dark:text-info-400 dark:ring-info-400/30">
@@ -169,7 +173,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-6 py-16 text-center">
+                            <td colspan="7" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center gap-3">
                                     <x-filament::icon icon="heroicon-o-inbox" class="h-12 w-12 text-gray-400" />
                                     <div class="text-sm text-gray-500">Нет продаж за выбранный период</div>
