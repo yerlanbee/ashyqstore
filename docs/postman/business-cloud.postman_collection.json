@@ -1,0 +1,365 @@
+{
+  "info": {
+    "name": "Business Cloud (merchant.cloudcore.kz)",
+    "description": "Реальная карта API Business Cloud, снятая с JS-бандла админки и проверенная вживую.\n\nПорядок работы:\n1. Заполнить переменные коллекции: `email`, `password`, `merchant_id`.\n2. Выполнить `Auth / Login` — токен (Keycloak, TTL 3600 с) автоматически сохранится в `access_token`.\n3. Остальные запросы берут bearer-токен и `X-Merchant-Id` с уровня коллекции.\n\nОграничения, проверенные вживую:\n- `pageSize` в `api/transactions` — строго 1..100, иначе 422.\n- `api/products` игнорирует любые query-параметры (пагинацию, фильтр по терминалу) и всегда отдаёт весь справочник.\n- CRUD по товарам отсутствует: `POST api/products` → 405. Товары заводятся только на стороне вендингового ПО.\n- Складского учёта в API нет. `cash-collections` / `collect-cash` — это инкассация наличных, не остатки товара.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://merchant.cloudcore.kz", "type": "string" },
+    { "key": "email", "value": "", "type": "string" },
+    { "key": "password", "value": "", "type": "string" },
+    { "key": "merchant_id", "value": "019b9204-c71a-733f-9911-9e1ce0dffd1c", "type": "string" },
+    { "key": "access_token", "value": "", "type": "string" },
+    { "key": "refresh_token", "value": "", "type": "string" },
+    { "key": "terminal_id", "value": "019b929b-c136-74f6-8f88-600518aca3e0", "type": "string" },
+    { "key": "product_id", "value": "019e72c3-aaf3-77b4-b59e-4d7f90951008", "type": "string" },
+    { "key": "date_from", "value": "2026-08-25", "type": "string" },
+    { "key": "date_to", "value": "2026-09-01", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "",
+                  "pm.test('получен access_token', function () {",
+                  "    pm.expect(body.access_token).to.be.a('string').and.not.empty;",
+                  "});",
+                  "",
+                  "if (body.access_token) {",
+                  "    pm.collectionVariables.set('access_token', body.access_token);",
+                  "}",
+                  "if (body.refresh_token) {",
+                  "    pm.collectionVariables.set('refresh_token', body.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"userName\": \"{{email}}\",\n    \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Соответствует BusinessCloudService::getJWT().\n\nОтвет: `access_token` (3600 с), `refresh_token` (86400 с), `expires_in`, `refresh_expires_in`.\n\nВ payload токена есть `merchants` — список доступных merchant_id, и `realm_access.roles`: merchant-owner, merchant-operator, merchant-collector, merchant-accountant."
+          }
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "refresh-token"]
+            },
+            "description": "Не используется в BusinessCloudService — там при 401 просто делается повторный логин. Альтернатива, если понадобится экономить логины."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "Список товаров (справочник)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const items = pm.response.json().items || [];",
+                  "console.log('товаров в справочнике:', items.length);",
+                  "console.log('поля:', Object.keys(items[0] || {}).join(', '));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/products",
+              "host": ["{{base_url}}"],
+              "path": ["api", "products"]
+            },
+            "description": "Единственный доступный эндпоинт по товарам.\n\nОтвет: `{ items: [{ id, nameRU, nameKZ }] }` — на текущем мерчанте 170 позиций.\n\nВажно:\n- Только три поля. Ни цены, ни категории, ни привязки к терминалу, ни остатков.\n- `id` — это ровно тот `productId`, что приходит в `api/transactions`. Проверено: 100% транзакций резолвятся в справочник.\n- Query-параметры (`page`, `pageSize`, `terminalId`) игнорируются — всегда возвращается полный список.\n- Названия приходят в формате `Полка 3 ZigiZagi ж/б 0.45л`, то есть номер полки зашит в строку. Часть позиций безымянные и называются `[За 589]` — их админка обрезает от квадратных скобок регуляркой `/^\\[|\\]$/g`.\n- Записи нет: `POST` → 405."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Список транзакций",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"page\": 1,\n    \"pageSize\": 100,\n    \"dateTimeFrom\": \"{{date_from}}T00:00:00.000Z\",\n    \"dateTimeTo\": \"{{date_to}}T23:59:59.999Z\",\n    \"terminalIds\": [\"{{terminal_id}}\"],\n    \"paymentMethods\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/transactions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions"]
+            },
+            "description": "Используется в TransactionRepository.\n\nОтвет: `{ totalCount, totalAmount, totalBonusAmount, items[] }`.\n\nОграничение: `pageSize` строго 1..100. Значения 150 и 200 из селектора в нашей админке дают 422.\n\nПоля item: id, externalId, terminalId, terminalName, amount, paymentMethod, transactionDate, promotionId, promotionName, bonusAmount, description, productId, salesOrderId, type, refundForTransactionId, salesOrderItems.\n\nМетоды оплаты: 1 — Kaspi, 2 — Halyk. `null` — без фильтра."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "description": "Готовая агрегированная аналитика на стороне Business Cloud. Разрез только по терминалам и методам оплаты — товарной аналитики здесь нет.",
+      "item": [
+        {
+          "name": "Статистика за период",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"dateFrom\": \"{{date_from}}\",\n    \"dateTo\": \"{{date_to}}\",\n    \"terminalIds\": [],\n    \"paymentMethods\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reports/get-period-stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "get-period-stats"]
+            },
+            "description": "Ответ: `{ periodStatDtos: [{ label, kaspiAmount, kaspiCount, halykAmount, halykCount, yandexAmount, yandexCount, paymeAmount, paymeCount, oDengiAmount, oDengiCount, cashAmount, cashCount, posAmount, posCount }] }` — разбивка по дням и платёжным системам."
+          }
+        },
+        {
+          "name": "Группировка (select-and-group)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"period\": null,\n    \"dateFrom\": \"{{date_from}}\",\n    \"dateTo\": \"{{date_to}}\",\n    \"terminalIds\": [],\n    \"paymentMethods\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reports/select-and-group",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "select-and-group"]
+            },
+            "description": "Ответ: `{ dailyCounterDtos: [{ label, value }] }`, где label — имя терминала, value — сумма.\n\nГруппировка идёт по терминалу, НЕ по товару. Для товарной аналитики не подходит.\n\nЕсли передать только `{ \"period\": 30 }` — берётся преднастроенный период."
+          }
+        },
+        {
+          "name": "Активность по часам",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"dateFrom\": \"{{date_from}}\",\n    \"dateTo\": \"{{date_to}}\",\n    \"terminalIds\": [],\n    \"paymentMethods\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reports/get-hourly-activities",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "get-hourly-activities"]
+            }
+          }
+        },
+        {
+          "name": "Активность по дням недели",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"dateFrom\": \"{{date_from}}\",\n    \"dateTo\": \"{{date_to}}\",\n    \"terminalIds\": [],\n    \"paymentMethods\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/reports/get-weekly-activities",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "get-weekly-activities"]
+            },
+            "description": "Ответ содержит ключи mon/tue/wed/thu/fri/sat/sun."
+          }
+        },
+        {
+          "name": "За последнюю неделю",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": {
+              "raw": "{{base_url}}/api/reports/get-last-week",
+              "host": ["{{base_url}}"],
+              "path": ["api", "reports", "get-last-week"]
+            },
+            "description": "Ответ: `{ lastWeekDtos: [...] }`. Аналогично существуют `get-last-month` и `get-last-half-year`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Devices",
+      "item": [
+        {
+          "name": "Список устройств",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/devices",
+              "host": ["{{base_url}}"],
+              "path": ["api", "devices"]
+            },
+            "description": "Ответ: `{ devices: [...] }`.\n\nПоля: id, type, machineCategory, isOnline, disconnectedAt, signalQuality, launchedAt, terminalId, terminalName, terminalAddress, isEnabled, simId, simOperator, paymentQrCode, coinCollectionAmount, billCollectionAmount, isKaspiEnabled, isHalykEnabled, isPaymeEnabled, bonusStepAmount, config.\n\n`terminalId` здесь — то же значение, что мы храним в `fridges.uuid`. Хороший источник для синка холодильников и мониторинга онлайн-статуса."
+          }
+        },
+        {
+          "name": "Детали устройства",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/devices/{{terminal_id}}/details",
+              "host": ["{{base_url}}"],
+              "path": ["api", "devices", "{{terminal_id}}", "details"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Прочее (обнаружено в бандле, не проверено)",
+      "description": "Эндпоинты, найденные в JS админки, но не вызванные вживую. Записывающие вызовы (create/edit) намеренно не выполнялись — это боевой мерчант.",
+      "item": [
+        {
+          "name": "Акции",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/promotions",
+              "host": ["{{base_url}}"],
+              "path": ["api", "promotions"]
+            },
+            "description": "Проверено: отдаёт `{ \"promotionDtos\": [] }` — акций нет.\n\nРядом в бандле есть `api/promotions/create` и `api/promotions/edit` (POST) — записывающие, не вызывались."
+          }
+        },
+        {
+          "name": "Инкассации",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/cash-collections",
+              "host": ["{{base_url}}"],
+              "path": ["api", "cash-collections"]
+            },
+            "description": "Инкассация наличных, не складские остатки."
+          }
+        },
+        {
+          "name": "Баланс мерчанта",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/merchants/balance",
+              "host": ["{{base_url}}"],
+              "path": ["api", "merchants", "balance"]
+            }
+          }
+        },
+        {
+          "name": "Счета",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "X-Merchant-Id", "value": "{{merchant_id}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/invoices",
+              "host": ["{{base_url}}"],
+              "path": ["api", "invoices"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

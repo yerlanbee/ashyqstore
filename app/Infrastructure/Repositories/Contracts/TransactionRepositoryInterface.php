@@ -2,17 +2,29 @@
 
 namespace App\Infrastructure\Repositories\Contracts;
 
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 interface TransactionRepositoryInterface
 {
     /**
-     * Получить обогащенные данные транзакций с учетом фильтров
+     * Все транзакции за период, со сквозным обходом страниц.
+     *
+     * API отдаёт максимум 100 записей за раз, поэтому и для таблицы,
+     * и для аналитики нужен обход всех страниц. Результат кэшируется.
+     *
+     * @param  string[]  $terminalIds  Пустой массив — все терминалы.
+     * @param  int[]|null  $paymentMethods
      */
-    public function getEnrichedTransactions(array $filters): Collection;
+    public function getRawForPeriod(
+        CarbonInterface $from,
+        CarbonInterface $to,
+        array $terminalIds = [],
+        ?array $paymentMethods = null,
+    ): Collection;
 
     /**
-     * Получить общую сумму и количество из последнего ответа API
+     * Свести транзакции в строки «товар × микромаркет».
      */
-    public function getSummary(): array;
+    public function groupByProduct(Collection $items): Collection;
 }

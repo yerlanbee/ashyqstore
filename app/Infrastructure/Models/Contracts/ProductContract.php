@@ -11,6 +11,7 @@ interface ProductContract extends ModelContract
 {
     const FIELD_NAME = 'name';
     const FIELD_UUID = 'uuid';
+    const FIELD_EXTERNAL_ID = 'external_id';
     const FIELD_IMAGE = 'image';
 
     const FIELD_QUANTITY = 'quantity';
@@ -29,6 +30,7 @@ interface ProductContract extends ModelContract
     const FIELDS = [
         self::FIELD_NAME,
         self::FIELD_UUID,
+        self::FIELD_EXTERNAL_ID,
         self::FIELD_IMAGE,
         self::FIELD_QUANTITY,
         self::FIELD_SORT,

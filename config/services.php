@@ -39,6 +39,15 @@ return [
         'email' => env('BUSINESS_CLOUD_USER_EMAIL'),
         'password' => env('BUSINESS_CLOUD_USER_PASS'),
         'merchant_id' => env('BUSINESS_CLOUD_MERCHANT_ID'),
-    ]
+
+        // API отдаёт время в UTC, а границы суток в отчётах должны быть местными.
+        'timezone' => env('BUSINESS_CLOUD_TIMEZONE', 'Asia/Almaty'),
+    ],
+
+    'ezviz' => [
+        'url' => env('EZVIZ_AREA_URL', 'https://open.ezvizlife.com'),
+        'app_key' => env('EZVIZ_APP_KEY'),
+        'app_secret' => env('EZVIZ_APP_SECRET'),
+    ],
 
 ];

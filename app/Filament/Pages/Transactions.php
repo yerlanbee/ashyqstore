@@ -12,8 +12,6 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -37,17 +35,12 @@ class Transactions extends Page implements HasForms
 
     public ?array $data = [];
 
-    public int $page = 1;
-
     public function mount(): void
     {
-        $defaultFridge = Fridge::query()->first();
-
         $this->form->fill([
-            'pageSize' => 100,
-            'dateTimeFrom' => now()->startOfDay()->format('Y-m-d'),
-            'dateTimeTo' => now()->endOfDay()->format('Y-m-d'),
-            'terminalId' => $defaultFridge?->uuid,
+            'dateTimeFrom' => now($this->timezone())->format('Y-m-d'),
+            'dateTimeTo' => now($this->timezone())->format('Y-m-d'),
+            'terminalIds' => [],
             'paymentMethods' => [],
             'search' => null,
         ]);
@@ -59,120 +52,136 @@ class Transactions extends Page implements HasForms
             ->schema([
                 TextInput::make('search')
                     ->label('Поиск товара')
-                    ->placeholder('Название или код...')
-                    ->live(debounce: 500)
-                    ->afterStateUpdated(fn () => $this->resetPage()),
-
-                Select::make('pageSize')
-                    ->label('Размер страницы')
-                    ->options([
-                        20 => '20',
-                        50 => '50',
-                        100 => '100',
-                        150 => '150',
-                        200 => '200',
-                    ])
-                    ->default(100)
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->resetPage()),
+                    ->placeholder('Название или полка...')
+                    ->live(debounce: 500),
 
                 DatePicker::make('dateTimeFrom')
                     ->label('Дата от')
                     ->native(false)
                     ->displayFormat('d.m.Y')
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->resetPage()),
+                    ->live(),
 
                 DatePicker::make('dateTimeTo')
                     ->label('Дата до')
                     ->native(false)
                     ->displayFormat('d.m.Y')
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->resetPage()),
+                    ->live(),
 
-                Select::make('terminalId')
-                    ->label('Холодильник')
+                Select::make('terminalIds')
+                    ->label('Микромаркеты')
+                    ->placeholder('Все микромаркеты')
+                    ->multiple()
                     ->options(fn () => Fridge::query()->orderBy('name')->pluck('name', 'uuid'))
                     ->searchable()
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->resetPage()),
+                    ->live(),
 
                 Select::make('paymentMethods')
                     ->label('Методы оплаты')
                     ->multiple()
+                    ->placeholder('Все методы')
                     ->options([
                         1 => 'Kaspi',
                         2 => 'Halyk',
                     ])
-                    ->live()
-                    ->afterStateUpdated(fn () => $this->resetPage()),
+                    ->live(),
             ])
             ->columns(3)
             ->statePath('data');
     }
 
-    public function resetPage(): void
-    {
-        $this->page = 1;
-    }
-
-    public function gotoPage(int $page): void
-    {
-        $this->page = max(1, $page);
-    }
-
     /**
      * @return array{
-     *     rows: Collection,
-     *     paginator: LengthAwarePaginator,
+     *     rows: array,
      *     summary: array{totalAmount: float, totalCount: int},
+     *     byFridge: Collection,
      *     filtersSummary: string
      * }
      */
     public function getViewData(): array
     {
-        $filters = $this->prepareApiFilters();
         $repository = app(TransactionRepositoryInterface::class);
 
-        $rows = $repository->getEnrichedTransactions($filters);
+        $raw = $repository->getRawForPeriod(
+            $this->dateFrom(),
+            $this->dateTo(),
+            $this->terminalIds(),
+            $this->paymentMethods(),
+        );
+
+        $rows = $repository->groupByProduct($raw);
         $rows = $this->applySearch($rows);
         $rows = $this->applySort($rows);
 
-        $perPage = (int) ($this->data['pageSize'] ?? 100);
-
-        $paginator = new Paginator(
-            $rows->forPage($this->page, $perPage)->values(),
-            $rows->count(),
-            $perPage,
-            $this->page,
-            ['path' => request()->url(), 'query' => request()->query()]
-        );
-
         return [
-            'rows' => $paginator->items(),
-            'paginator' => $paginator,
+            'rows' => $rows->all(),
             'summary' => [
-                'totalAmount' => $rows->sum(fn ($r) => $r['amount'] * $r['count']),
-                'totalCount' => $rows->sum('count'),
+                'totalAmount' => (float) $rows->sum('total'),
+                'totalCount' => (int) $rows->sum('count'),
             ],
-            'filtersSummary' => $this->formatFiltersSummary($filters),
+            'byFridge' => $this->summarizeByFridge($rows),
+            'filtersSummary' => $this->formatFiltersSummary(),
         ];
     }
 
-    protected function prepareApiFilters(): array
+    /** Итоги по каждому микромаркету, чтобы их можно было сравнить между собой. */
+    protected function summarizeByFridge(Collection $rows): Collection
     {
-        $paymentMethods = array_filter(
-            array_map('intval', (array) ($this->data['paymentMethods'] ?? []))
-        );
+        return $rows
+            ->groupBy('name')
+            ->map(fn (Collection $group, string $name) => [
+                'name' => $name,
+                'units' => (int) $group->sum('count'),
+                'revenue' => (float) $group->sum('total'),
+                'positions' => $group->count(),
+            ])
+            ->sortByDesc('revenue')
+            ->values();
+    }
 
-        return [
-            'pageSize' => (int) ($this->data['pageSize'] ?? 100),
-            'dateTimeFrom' => $this->formatToIso($this->data['dateTimeFrom'] ?? null, false),
-            'dateTimeTo' => $this->formatToIso($this->data['dateTimeTo'] ?? null, true),
-            'terminalIds' => filled($this->data['terminalId'] ?? null) ? [$this->data['terminalId']] : [],
-            'page' => $this->page,
-            'paymentMethods' => $paymentMethods ?: null,
-        ];
+    /** @return string[] Пустой массив — все микромаркеты. */
+    protected function terminalIds(): array
+    {
+        return array_values(array_filter((array) ($this->data['terminalIds'] ?? [])));
+    }
+
+    /** @return int[]|null */
+    protected function paymentMethods(): ?array
+    {
+        $methods = array_filter(array_map('intval', (array) ($this->data['paymentMethods'] ?? [])));
+
+        return $methods ?: null;
+    }
+
+    protected function dateFrom(): Carbon
+    {
+        return $this->parseDate($this->data['dateTimeFrom'] ?? null)->startOfDay();
+    }
+
+    protected function dateTo(): Carbon
+    {
+        return $this->parseDate($this->data['dateTimeTo'] ?? null)->endOfDay();
+    }
+
+    /** Границы суток считаем по местному времени: API отдаёт и принимает UTC. */
+    protected function parseDate(?string $date): Carbon
+    {
+        return $date
+            ? Carbon::parse($date, $this->timezone())
+            : Carbon::now($this->timezone());
+    }
+
+    protected function timezone(): string
+    {
+        return config('services.business_cloud.timezone', 'Asia/Almaty');
+    }
+
+    public function formatPaidAt(?string $value): string
+    {
+        if (! $value) {
+            return '—';
+        }
+
+        return Carbon::parse($value)->timezone($this->timezone())->format('d.m.Y H:i:s');
     }
 
     protected function applySearch(Collection $rows): Collection
@@ -193,32 +202,24 @@ class Transactions extends Page implements HasForms
 
     protected function applySort(Collection $rows): Collection
     {
-        return $rows->sortByDesc('paid_at', SORT_NATURAL | SORT_FLAG_CASE)->values();
+        return $rows->sortByDesc('count')->values();
     }
 
-    protected function formatToIso(?string $date, bool $isEnd): string
-    {
-        $dt = $date ? Carbon::parse($date) : now();
-        $dt = $dt->utc();
-
-        return ($isEnd ? $dt->endOfDay() : $dt->startOfDay())->format('Y-m-d\TH:i:s.v\Z');
-    }
-
-    protected function formatFiltersSummary(array $filters): string
+    protected function formatFiltersSummary(): string
     {
         $parts = [
-            "Размер: {$filters['pageSize']}",
-            'От: ' . Carbon::parse($filters['dateTimeFrom'])->format('d.m.Y'),
-            'До: ' . Carbon::parse($filters['dateTimeTo'])->format('d.m.Y'),
+            'С ' . $this->dateFrom()->format('d.m.Y'),
+            'по ' . $this->dateTo()->format('d.m.Y'),
         ];
+
+        $terminalIds = $this->terminalIds();
+
+        $parts[] = $terminalIds === []
+            ? 'Все микромаркеты'
+            : Fridge::query()->whereIn('uuid', $terminalIds)->pluck('name')->implode(', ');
 
         if ($search = $this->data['search'] ?? null) {
             $parts[] = "Поиск: {$search}";
-        }
-
-        if (! empty($filters['terminalIds'])) {
-            $fridge = Fridge::query()->where('uuid', $filters['terminalIds'][0])->first();
-            $parts[] = 'Терминал: ' . ($fridge?->name ?? $filters['terminalIds'][0]);
         }
 
         return implode(' | ', $parts);

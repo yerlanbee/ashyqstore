@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int $id
  * @property string $name
  * @property string $uuid
+ * @property ?string $external_id
  * @property string $image
  * @property int $quantity
  * @property float $price

@@ -12,4 +12,9 @@ interface BusinessClodServiceContract
     public function getJWT(): string;
 
     public function getTransactions(array $filters): array;
+
+    /**
+     * Справочник товаров: [['id' => uuid, 'nameRU' => string, 'nameKZ' => string], ...]
+     */
+    public function getProducts(): array;
 }

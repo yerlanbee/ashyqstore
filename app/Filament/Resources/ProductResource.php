@@ -73,7 +73,7 @@ class ProductResource extends Resource
                                     ->options(fn () => Category::query()->orderBy('name')->pluck('name', 'id'))
                                     ->searchable()
                                     ->preload()
-                                    ->required()
+                                    ->helperText('Business Cloud категории не отдаёт — проставляется вручную')
                                     ->prefixIcon('heroicon-o-rectangle-stack'),
 
                                 Forms\Components\Select::make('fridge_id')
@@ -81,12 +81,11 @@ class ProductResource extends Resource
                                     ->options(fn () => Fridge::query()->orderBy('name')->pluck('name', 'id'))
                                     ->searchable()
                                     ->preload()
-                                    ->required()
                                     ->prefixIcon('heroicon-o-building-storefront'),
 
                                 Forms\Components\TextInput::make('code')
-                                    ->label('Код')
-                                    ->placeholder('Введите код товара')
+                                    ->label('Полка')
+                                    ->placeholder('Номер полки в холодильнике')
                                     ->maxLength(255)
                                     ->prefixIcon('heroicon-o-hashtag')
                                     ->columnSpan(2),
@@ -161,6 +160,12 @@ class ProductResource extends Resource
                                     ->dehydrated()
                                     ->default(fn () => (string) Str::uuid())
                                     ->prefixIcon('heroicon-o-finger-print'),
+
+                                Forms\Components\TextInput::make('external_id')
+                                    ->label('ID в Business Cloud')
+                                    ->helperText('Связывает товар с транзакциями. Заполняется импортом.')
+                                    ->unique(ignoreRecord: true)
+                                    ->prefixIcon('heroicon-o-link'),
                             ])
                             ->collapsible()
                             ->collapsed(fn (string $operation) => $operation === 'create'),
@@ -205,12 +210,18 @@ class ProductResource extends Resource
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('code')
-                    ->label('Код')
+                    ->label('Полка')
                     ->searchable()
                     ->sortable()
                     ->placeholder('—')
                     ->fontFamily('mono')
-                    ->copyable()
+                    ->toggleable(),
+
+                Tables\Columns\IconColumn::make('external_id')
+                    ->label('BC')
+                    ->tooltip(fn (Product $record) => $record->external_id ?? 'Не связан с Business Cloud — продажи по этому товару не отобразятся')
+                    ->icon(fn ($state) => $state ? 'heroicon-m-link' : 'heroicon-m-link-slash')
+                    ->color(fn ($state) => $state ? 'success' : 'warning')
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('quantity')
@@ -263,6 +274,16 @@ class ProductResource extends Resource
                 Tables\Filters\Filter::make('low_stock')
                     ->label('Мало на складе')
                     ->query(fn ($query) => $query->where('quantity', '<', 5))
+                    ->toggle(),
+
+                Tables\Filters\Filter::make('unlinked')
+                    ->label('Без связи с Business Cloud')
+                    ->query(fn ($query) => $query->whereNull('external_id'))
+                    ->toggle(),
+
+                Tables\Filters\Filter::make('no_category')
+                    ->label('Без категории')
+                    ->query(fn ($query) => $query->whereNull('category_id'))
                     ->toggle(),
             ])
             ->actions([

@@ -1,33 +1,39 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Infrastructure\Models;
 
-use App\Infrastructure\Models\Contracts\FridgeContract;
-use Illuminate\Database\Eloquent\Builder;
+use App\Infrastructure\Models\Contracts\CameraContract;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
+ * @property ?int $fridge_id
  * @property string $name
- * @property string $uuid
+ * @property string $serial
+ * @property ?string $verification_code
+ * @property int $channel_no
  * @property bool $is_active
+ *
+ * @property-read ?Fridge $fridge
  */
-class Fridge extends Model implements FridgeContract
+class Camera extends Model implements CameraContract
 {
     protected $table = self::TABLE;
 
     protected $fillable = self::FIELDS;
 
-    public function products(): HasMany
-    {
-        return $this->hasMany(Product::class);
-    }
+    protected $casts = [
+        'is_active' => 'bool',
+        'channel_no' => 'int',
+    ];
 
-    public function cameras(): HasMany
+    public function fridge(): BelongsTo
     {
-        return $this->hasMany(Camera::class);
+        return $this->belongsTo(Fridge::class);
     }
 
     public static function findById(int $id): ?Model
@@ -38,10 +44,5 @@ class Fridge extends Model implements FridgeContract
     public static function getAll(array $columns = ['*']): Collection
     {
         return self::query()->get($columns);
-    }
-
-    public static function whereCode(string $code): Builder
-    {
-        return self::query()->where('code', $code);
     }
 }

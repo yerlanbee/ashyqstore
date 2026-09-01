@@ -20,6 +20,9 @@ class BusinessCloudService implements BusinessClodServiceContract
 
     private const CACHE_KEY = 'business_cloud:jwt';
 
+    /** Жёсткий лимит API: pageSize вне 1..100 отдаёт 422. */
+    public const MAX_PAGE_SIZE = 100;
+
     private readonly string $email;
 
     private readonly string $password;
@@ -45,6 +48,17 @@ class BusinessCloudService implements BusinessClodServiceContract
         $response = $this->send(fn (PendingRequest $http) => $http->post('api/transactions', $filters));
 
         return $response->json() ?? [];
+    }
+
+    /**
+     * @throws ConnectionException
+     * @throws RequestException
+     */
+    public function getProducts(): array
+    {
+        $response = $this->send(fn (PendingRequest $http) => $http->get('api/products'));
+
+        return $response->json('items') ?? [];
     }
 
     /**

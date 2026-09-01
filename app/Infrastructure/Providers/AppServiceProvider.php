@@ -6,6 +6,8 @@ use App\Infrastructure\Repositories\Contracts\TransactionRepositoryInterface;
 use App\Infrastructure\Repositories\TransactionRepository;
 use App\Infrastructure\Services\BusinessCloudService;
 use App\Infrastructure\Services\Contracts\BusinessClodServiceContract;
+use App\Infrastructure\Services\Contracts\EzvizServiceContract;
+use App\Infrastructure\Services\EzvizService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             BusinessClodServiceContract::class,
             BusinessCloudService::class
+        );
+        $this->app->singleton(
+            EzvizServiceContract::class,
+            EzvizService::class
         );
     }
 
