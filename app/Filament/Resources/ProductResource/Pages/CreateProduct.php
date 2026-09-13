@@ -75,6 +75,7 @@ class CreateProduct extends CreateRecord
                         Forms\Components\Select::make('fridge_ids')
                             ->label('Холодильники')
                             ->options(fn (): array => $this->getFridgeOptions())
+                            ->default(fn (): array => array_keys($this->getFridgeOptions()))
                             ->multiple()
                             ->searchable()
                             ->prefixIcon('heroicon-o-building-storefront')
